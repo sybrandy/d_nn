@@ -1,0 +1,29 @@
+{
+	"authors": [
+		"Cornelius Sybrandy"
+	],
+	"configurations": [
+		{
+			"targetType": "library",
+			"excludeSourceFiles": "source/app.d",
+			"name": "library"
+		},
+		{
+			"dependencies": {
+				"fluent-asserts": "~>0.13.0"
+			},
+			"name": "unittest"
+		},
+		{
+			"name": "run",
+			"targetType": "executable"
+		}
+	],
+	"copyright": "Copyright © 2020, Cornelius Sybrandy",
+	"dependencies": {
+		"silly": "~>1.0.2"
+	},
+	"description": "A library for creating neural networks in D.",
+	"license": "MIT",
+	"name": "d_nn"
+}
