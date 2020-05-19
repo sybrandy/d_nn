@@ -21,3 +21,7 @@ The current plan is as follows:
 1. Document the current implementation.
 1. Make the current implementation the reference implementation.
 1. Create a copy of the current implementation and optimize the code as much as possible.
+
+## References
+
+* [How to Code a Neural Network with Backpropagation In Python (from scratch)](https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/)
