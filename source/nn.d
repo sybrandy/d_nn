@@ -15,10 +15,11 @@ struct NN
 	+/
 	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr)
 	{
-		this(numInputs, numHidden, numOutputs, lr, null);
+		this(numInputs, numHidden, numOutputs, lr, null, null);
 	}
 
-	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr, double delegate(double) transfer)
+	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr,
+			double delegate(double) transfer, double delegate(double) derivative)
 	{
 		this.learningRate = lr;
 		layers.length = numHidden.length + 1;
@@ -28,17 +29,17 @@ struct NN
 			{
 				if (i == 0)
 				{
-					layers[i] ~= Neuron(numInputs, transfer);
+					layers[i] ~= Neuron(numInputs, transfer, derivative);
 				}
 				else
 				{
-					layers[i] ~= Neuron(numHidden[i-1], transfer);
+					layers[i] ~= Neuron(numHidden[i-1], transfer, derivative);
 				}
 			}
 		}
 		foreach (i; 0..numOutputs)
 		{
-			layers[$-1] ~= Neuron(numHidden[$-1], transfer);
+			layers[$-1] ~= Neuron(numHidden[$-1], transfer, derivative);
 		}
 	}
 
@@ -210,7 +211,7 @@ struct NN
 			}
 			for (long j = 0; j < layers[i].length; j++)
 			{
-				layers[i][j].delta = errors[j] * layers[i][j].transfer_derivative();
+				layers[i][j].delta = errors[j] * layers[i][j].derivativeFunc(layers[i][j].output);
 			}
 		}
 	}
@@ -288,11 +289,12 @@ struct Neuron
 	double[] weights;
 	double output, delta;
 	double delegate(double) transferFunc;
+	double delegate(double) derivativeFunc;
 
 	/+
 	  Initializes a neuron with randomized weights based.
 	+/
-	this(ulong numWeights, double delegate(double) transfer)
+	this(ulong numWeights, double delegate(double) transfer, double delegate(double) derivative)
 	{
 		if (transfer is null)
 		{
@@ -301,6 +303,15 @@ struct Neuron
 		else
 		{
 			transferFunc = transfer;
+		}
+
+		if (derivative is null)
+		{
+			derivativeFunc = &defaultDerivative;
+		}
+		else
+		{
+			derivativeFunc = derivative;
 		}
 
 		// This was added to make it easier to unit test future methods
@@ -344,12 +355,13 @@ struct Neuron
 	@("Activate")
 	unittest
 	{
-		auto net = NN(2, [4], 3, 0.1);
-		auto currLayers = net.getLayers();
-		currLayers[0][0].activate([1, 2]).should.be.approximately(.88079, .00001);
-		currLayers[0][0].activate([1, 1]).should.be.approximately(.81757, .00001);
-		currLayers[1][0].activate([1, 2, 3, 4]).should.be.approximately(.99592, .00001);
-		currLayers[1][0].activate([.81575, .81575, .81575, .81575]).should.be.approximately(.89427, .001);
+		auto neuron = Neuron(2, null, null);
+		neuron.activate([1, 2]).should.be.approximately(.88079, .00001);
+		neuron.activate([1, 1]).should.be.approximately(.81757, .00001);
+
+		neuron = Neuron(4, null, null);
+		neuron.activate([1, 2, 3, 4]).should.be.approximately(.99592, .00001);
+		neuron.activate([.81575, .81575, .81575, .81575]).should.be.approximately(.89427, .001);
 	}
 
 	/+
@@ -365,7 +377,7 @@ struct Neuron
 	@("Transfer: Default")
 	unittest
 	{
-		auto neuron = Neuron(1, null);
+		auto neuron = Neuron(1, null, null);
 		neuron.transferFunc(2).should.be.approximately(.88079, .00001);
 		neuron.transferFunc(1.5).should.be.approximately(.81757, .00001);
 		neuron.transferFunc(0).should.be.approximately(.50000, .00001);
@@ -378,7 +390,7 @@ struct Neuron
 	unittest
 	{
 		double testFunc(double a) { return (a > 0) ? 1 : (a < 0) ? -1 : 0; }
-		auto neuron = Neuron(1, &testFunc);
+		auto neuron = Neuron(1, &testFunc, null);
 		neuron.transferFunc(2).should.equal(1);
 		neuron.transferFunc(0).should.equal(0);
 		neuron.transferFunc(-5).should.equal(-1);
@@ -388,21 +400,26 @@ struct Neuron
 	  This calculates the slope of the output value.  This is done, in this
 	  case, using the sigmoid transfer function.
 	+/
-	double transfer_derivative()
+	double defaultDerivative(double input)
 	{
-		return output * (1.0 - output);
+		return input * (1.0 - input);
 	}
 
-	@("Transfer Derivative")
+	@("Transfer Derivative: Default")
 	unittest
 	{
-		auto net = NN(2, [4], 3, 0.1);
-		auto currLayers = net.getLayers();
-		currLayers[0][0].output = .5;
-		currLayers[0][0].transfer_derivative().should.equal(.25);
-		currLayers[0][0].output = .3;
-		currLayers[0][0].transfer_derivative().should.equal(.21);
-		currLayers[0][0].output = .89427;
-		currLayers[0][0].transfer_derivative().should.be.approximately(.09455, .00001);
+		auto neuron = Neuron(1, null, null);
+		neuron.derivativeFunc(.5).should.equal(.25);
+		neuron.derivativeFunc(.3).should.equal(.21);
+		neuron.derivativeFunc(.89427).should.be.approximately(.09455, .00001);
+	}
+
+	@("Transfer Derivative: Overridden")
+	unittest
+	{
+		double testFunc(double a) { return a * 2; }
+		auto neuron = Neuron(1, null, &testFunc);
+		neuron.derivativeFunc(.5).should.equal(1.0);
+		neuron.derivativeFunc(.3).should.equal(.6);
 	}
 }
