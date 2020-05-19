@@ -12,10 +12,13 @@ struct NN
 
 	/+
 	  Create a new network.
-
-	  Currently creates only one hidden layer.
 	+/
 	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr)
+	{
+		this(numInputs, numHidden, numOutputs, lr, null);
+	}
+
+	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr, double delegate(double) transfer)
 	{
 		this.learningRate = lr;
 		layers.length = numHidden.length + 1;
@@ -25,17 +28,17 @@ struct NN
 			{
 				if (i == 0)
 				{
-					layers[i] ~= Neuron(numInputs);
+					layers[i] ~= Neuron(numInputs, transfer);
 				}
 				else
 				{
-					layers[i] ~= Neuron(numHidden[i-1]);
+					layers[i] ~= Neuron(numHidden[i-1], transfer);
 				}
 			}
 		}
 		foreach (i; 0..numOutputs)
 		{
-			layers[$-1] ~= Neuron(numHidden[$-1]);
+			layers[$-1] ~= Neuron(numHidden[$-1], transfer);
 		}
 	}
 
@@ -43,7 +46,6 @@ struct NN
 	unittest
 	{
 		auto net = NN(2, [4], 3, 0.1);
-		/* auto currLayers = net.getLayers(); */
 		net.layers[0].length.should.equal(4);
 		net.layers[1].length.should.equal(3);
 
@@ -285,12 +287,22 @@ struct Neuron
 {
 	double[] weights;
 	double output, delta;
+	double delegate(double) transferFunc;
 
 	/+
 	  Initializes a neuron with randomized weights based.
 	+/
-	this(ulong numWeights)
+	this(ulong numWeights, double delegate(double) transfer)
 	{
+		if (transfer is null)
+		{
+			transferFunc = &defaultTransfer;
+		}
+		else
+		{
+			transferFunc = transfer;
+		}
+
 		// This was added to make it easier to unit test future methods
 		// as the weights would be consistent.
 		version(unittest)
@@ -325,7 +337,7 @@ struct Neuron
 		{
 			activation += inputs[i] * weights[i];
 		}
-		output = transfer(activation);
+		output = transferFunc(activation);
 		return output;
 	}
 
@@ -345,22 +357,31 @@ struct Neuron
 	  output from the neuron through a signmod activation function.  Others
 	  can be used, but that's what we're using right now.
 	+/
-	double transfer(double input)
+	double defaultTransfer(double input)
 	{
 		return 1.0 / (1.0 + exp(-input));
 	}
 
-	@("Transfer")
+	@("Transfer: Default")
 	unittest
 	{
-		auto net = NN(2, [4], 3, 0.1);
-		auto currLayers = net.getLayers();
-		currLayers[0][0].transfer(2).should.be.approximately(.88079, .00001);
-		currLayers[0][0].transfer(1.5).should.be.approximately(.81757, .00001);
-		currLayers[0][0].transfer(0).should.be.approximately(.50000, .00001);
-		currLayers[0][0].transfer(-1).should.be.approximately(.26894, .00001);
-		currLayers[1][0].transfer(5.5).should.be.approximately(.99592, .00001);
-		currLayers[1][0].transfer(2.13514).should.be.approximately(.89427, .00001);
+		auto neuron = Neuron(1, null);
+		neuron.transferFunc(2).should.be.approximately(.88079, .00001);
+		neuron.transferFunc(1.5).should.be.approximately(.81757, .00001);
+		neuron.transferFunc(0).should.be.approximately(.50000, .00001);
+		neuron.transferFunc(-1).should.be.approximately(.26894, .00001);
+		neuron.transferFunc(5.5).should.be.approximately(.99592, .00001);
+		neuron.transferFunc(2.13514).should.be.approximately(.89427, .00001);
+	}
+
+	@("Transfer: Overridden")
+	unittest
+	{
+		double testFunc(double a) { return (a > 0) ? 1 : (a < 0) ? -1 : 0; }
+		auto neuron = Neuron(1, &testFunc);
+		neuron.transferFunc(2).should.equal(1);
+		neuron.transferFunc(0).should.equal(0);
+		neuron.transferFunc(-5).should.equal(-1);
 	}
 
 	/+
