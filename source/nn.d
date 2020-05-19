@@ -20,6 +20,15 @@ struct NN
 
 	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr,
 			double delegate(double) transfer, double delegate(double) derivative)
+	in
+	{
+		assert(numInputs > 0);
+		assert(numHidden.length > 0);
+		assert(numHidden.all!(a => a > 0));
+		assert(numOutputs > 0);
+		assert(lr > 0.0);
+	}
+	do
 	{
 		this.learningRate = lr;
 		layers.length = numHidden.length + 1;
@@ -120,7 +129,7 @@ struct NN
 		net.layers[5][2].weights.length.should.equal(5);
 	}
 
-	Neuron[][] getLayers()
+	private Neuron[][] getLayers()
 	{
 		return layers.dup;
 	}
@@ -185,6 +194,11 @@ struct NN
 	}
 
 	private void backward(double[] expected)
+	in
+	{
+		assert(expected.length == layers[$-1].length);
+	}
+	do
 	{
 		for(long i = layers.length-1; i >= 0; i--)
 		{
@@ -238,6 +252,17 @@ struct NN
 	}
 
 	private void updateWeights(double[] nnInput)
+	in
+	{
+		// For training, the inputs contain the expected value as the
+		// last value in the array, so we want to ingnore it.  Also,
+		// the weights has a bias as the last element, so we ignore it
+		// as well.  In reality, we could just do a straight
+		// comparison, but if things change for any reason, I belive
+		// this code and this comment would be better.
+		assert(nnInput.length - 1 == layers[0][0].weights.length - 1);
+	}
+	do
 	{
 		double[] inputs = nnInput[0..$-1];
 		for(int i = 0; i < layers.length; i++)
@@ -286,15 +311,20 @@ struct NN
 
 struct Neuron
 {
-	double[] weights;
-	double output, delta;
-	double delegate(double) transferFunc;
-	double delegate(double) derivativeFunc;
+	private double[] weights;
+	private double output, delta;
+	private double delegate(double) transferFunc;
+	private double delegate(double) derivativeFunc;
 
 	/+
 	  Initializes a neuron with randomized weights based.
 	+/
 	this(ulong numWeights, double delegate(double) transfer, double delegate(double) derivative)
+	in
+	{
+		assert(numWeights > 0);
+	}
+	do
 	{
 		if (transfer is null)
 		{
@@ -370,6 +400,12 @@ struct Neuron
 	  can be used, but that's what we're using right now.
 	+/
 	double defaultTransfer(double input)
+	out (r)
+	{
+		assert(r > -1);
+		assert(r < 1);
+	}
+	do
 	{
 		return 1.0 / (1.0 + exp(-input));
 	}
