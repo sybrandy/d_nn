@@ -15,24 +15,34 @@ struct NN
 
 	  Currently creates only one hidden layer.
 	+/
-	this(ulong numInputs, ulong numHidden, ulong numOutputs, float lr)
+	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr)
 	{
 		this.learningRate = lr;
-		layers.length = 2;
-		foreach (i; 0..numHidden)
+		layers.length = numHidden.length + 1;
+		foreach (i; 0..numHidden.length)
 		{
-			layers[0] ~= Neuron(numInputs);
+			foreach (j; 0..numHidden[i])
+			{
+				if (i == 0)
+				{
+					layers[i] ~= Neuron(numInputs);
+				}
+				else
+				{
+					layers[i] ~= Neuron(numHidden[i-1]);
+				}
+			}
 		}
 		foreach (i; 0..numOutputs)
 		{
-			layers[$-1] ~= Neuron(numHidden);
+			layers[$-1] ~= Neuron(numHidden[$-1]);
 		}
 	}
 
-	@("Constructor")
+	@("Constructor: 1 hidden layer.")
 	unittest
 	{
-		auto net = NN(2, 4, 3, 0.1);
+		auto net = NN(2, [4], 3, 0.1);
 		/* auto currLayers = net.getLayers(); */
 		net.layers[0].length.should.equal(4);
 		net.layers[1].length.should.equal(3);
@@ -44,6 +54,67 @@ struct NN
 		net.layers[1][0].weights.length.should.equal(5);
 		net.layers[1][1].weights.length.should.equal(5);
 		net.layers[1][2].weights.length.should.equal(5);
+	}
+
+	@("Constructor: 2 hidden layers.")
+	unittest
+	{
+		auto net = NN(2, [5, 4], 3, 0.1);
+		/* auto currLayers = net.getLayers(); */
+		net.layers[0].length.should.equal(5);
+		net.layers[1].length.should.equal(4);
+		net.layers[2].length.should.equal(3);
+
+		net.layers[0][0].weights.length.should.equal(3);
+		net.layers[0][1].weights.length.should.equal(3);
+		net.layers[0][2].weights.length.should.equal(3);
+		net.layers[0][3].weights.length.should.equal(3);
+		net.layers[0][4].weights.length.should.equal(3);
+		net.layers[1][0].weights.length.should.equal(6);
+		net.layers[1][1].weights.length.should.equal(6);
+		net.layers[1][2].weights.length.should.equal(6);
+		net.layers[1][3].weights.length.should.equal(6);
+		net.layers[2][0].weights.length.should.equal(5);
+		net.layers[2][1].weights.length.should.equal(5);
+		net.layers[2][2].weights.length.should.equal(5);
+	}
+
+	@("Constructor: 5 hidden layers.")
+	unittest
+	{
+		auto net = NN(2, [5, 4, 4, 4, 4], 3, 0.1);
+		/* auto currLayers = net.getLayers(); */
+		net.layers[0].length.should.equal(5);
+		net.layers[1].length.should.equal(4);
+		net.layers[2].length.should.equal(4);
+		net.layers[3].length.should.equal(4);
+		net.layers[4].length.should.equal(4);
+		net.layers[5].length.should.equal(3);
+
+		net.layers[0][0].weights.length.should.equal(3);
+		net.layers[0][1].weights.length.should.equal(3);
+		net.layers[0][2].weights.length.should.equal(3);
+		net.layers[0][3].weights.length.should.equal(3);
+		net.layers[0][4].weights.length.should.equal(3);
+		net.layers[1][0].weights.length.should.equal(6);
+		net.layers[1][1].weights.length.should.equal(6);
+		net.layers[1][2].weights.length.should.equal(6);
+		net.layers[1][3].weights.length.should.equal(6);
+		net.layers[2][0].weights.length.should.equal(5);
+		net.layers[2][1].weights.length.should.equal(5);
+		net.layers[2][2].weights.length.should.equal(5);
+		net.layers[2][3].weights.length.should.equal(5);
+		net.layers[3][0].weights.length.should.equal(5);
+		net.layers[3][1].weights.length.should.equal(5);
+		net.layers[3][2].weights.length.should.equal(5);
+		net.layers[3][3].weights.length.should.equal(5);
+		net.layers[4][0].weights.length.should.equal(5);
+		net.layers[4][1].weights.length.should.equal(5);
+		net.layers[4][2].weights.length.should.equal(5);
+		net.layers[4][3].weights.length.should.equal(5);
+		net.layers[5][0].weights.length.should.equal(5);
+		net.layers[5][1].weights.length.should.equal(5);
+		net.layers[5][2].weights.length.should.equal(5);
 	}
 
 	Neuron[][] getLayers()
@@ -101,7 +172,7 @@ struct NN
 	@("Forward")
 	unittest
 	{
-		auto net = NN(2, 4, 3, 0.1);
+		auto net = NN(2, [4], 3, 0.1);
 		double[] actual = net.forward([1, 1]);
 		actual[0].should.be.approximately(.89427, .001);
 		actual[1].should.be.approximately(.89427, .001);
@@ -145,7 +216,7 @@ struct NN
 	@("Backward")
 	unittest
 	{
-		auto net = NN(2, 4, 3, 0.1);
+		auto net = NN(2, [4], 3, 0.1);
 		double[] actual = net.forward([1, 1]);
 		net.backward([.5, .5, .5]);
 		auto updatedLayers = net.getLayers();
@@ -190,7 +261,7 @@ struct NN
 	@("Update weights")
 	unittest
 	{
-		auto net = NN(2, 4, 3, 0.1);
+		auto net = NN(2, [4], 3, 0.1);
 		double[] actual = net.forward([1, 1]);
 		net.backward([.5, .5, .5]);
 		net.updateWeights([1,1,1]);
@@ -261,7 +332,7 @@ struct Neuron
 	@("Activate")
 	unittest
 	{
-		auto net = NN(2, 4, 3, 0.1);
+		auto net = NN(2, [4], 3, 0.1);
 		auto currLayers = net.getLayers();
 		currLayers[0][0].activate([1, 2]).should.be.approximately(.88079, .00001);
 		currLayers[0][0].activate([1, 1]).should.be.approximately(.81757, .00001);
@@ -282,7 +353,7 @@ struct Neuron
 	@("Transfer")
 	unittest
 	{
-		auto net = NN(2, 4, 3, 0.1);
+		auto net = NN(2, [4], 3, 0.1);
 		auto currLayers = net.getLayers();
 		currLayers[0][0].transfer(2).should.be.approximately(.88079, .00001);
 		currLayers[0][0].transfer(1.5).should.be.approximately(.81757, .00001);
@@ -304,7 +375,7 @@ struct Neuron
 	@("Transfer Derivative")
 	unittest
 	{
-		auto net = NN(2, 4, 3, 0.1);
+		auto net = NN(2, [4], 3, 0.1);
 		auto currLayers = net.getLayers();
 		currLayers[0][0].output = .5;
 		currLayers[0][0].transfer_derivative().should.equal(.25);
