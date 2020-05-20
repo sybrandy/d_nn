@@ -178,12 +178,19 @@ struct NN
 	  Examples:
 	  ---
 	  auto network = NN(2, [3], 1, .01);
-	  auto result = network.preduct([1, 0]);
+	  auto result = network.predict([1, 0]);
 	  ---
 	 +/
-	ulong predict(double[] input)
+	double predict(double[] input)
 	{
-		return forward(input).maxIndex();
+		if (layers[$-1].length == 1)
+		{
+			return forward(input)[0];
+		}
+		else
+		{
+			return forward(input).maxIndex();
+		}
 	}
 
 	/++
