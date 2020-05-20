@@ -477,7 +477,10 @@ private struct Neuron
 		{
 			activation += inputs[i] * weights[i];
 		}
-		return transferFunc(activation);
+
+		// Set the output value of the Neuron so it can be used for training.
+		output = transferFunc(activation);
+		return output;
 	}
 
 	@("Activate")

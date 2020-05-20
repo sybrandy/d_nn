@@ -246,8 +246,8 @@ else
 		auto numOutputs = normalized.map!(a => a[$-1]).array.sort.uniq.array.length;
 		writeln("Num outputs: ", numOutputs);
 
-		auto network = NN(numInputs, 5, numOutputs, 0.3);
-		network.train(normalized, 1000, numOutputs);
+		auto network = NN(numInputs, [5], numOutputs, 0.3);
+		network.train(normalized, 1000);
 		writeln("Done training.");
 
 		ulong numCorrect = 0;
