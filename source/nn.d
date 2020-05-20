@@ -5,19 +5,52 @@ version(unittest)
 	import fluent.asserts;
 }
 
+/++
+  The main data type for creating a neural network.
+  +/
 struct NN
 {
 	private Neuron[][] layers;
 	private float learningRate;
 
-	/+
+	/++
 	  Create a new network.
+
+	  Params:
+	  	numInputs = The number of input values for the network.
+		numHidden = An array containing the number of neurons for each hidden layer.
+		numOutputs = The number of output values.
+		lr = The learning rate for training the network.
+
+	  Example:
+	  ---
+	  auto network = NN(2, [3], 1, .01);
+	  ---
 	+/
 	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr)
 	{
 		this(numInputs, numHidden, numOutputs, lr, null, null);
 	}
 
+
+	/++
+	  Create a new network with custom transfer and derivative functions.
+
+	  Params:
+	  	numInputs = The number of input values for the network.
+		numHidden = An array containing the number of neurons for each hidden layer.
+		numOutputs = The number of output values.
+		lr = The learning rate for training the network.
+		transfer = A function that implements the transfer equation.  Default: Sigmoid function.
+		derivative = A function that implements the derivative of the transfer function.
+
+	  Example:
+	  ---
+	  double myTransfer(double in) { return in / 2; }  // Neither of these should be used.
+	  double myDerivative(double in) { return in * 2; }
+	  auto network = NN(2, [3], 1, .01, &myTransfer, &myDerivative);
+	  ---
+	+/
 	this(ulong numInputs, ulong[] numHidden, ulong numOutputs, float lr,
 			double delegate(double) transfer, double delegate(double) derivative)
 	in
@@ -134,16 +167,57 @@ struct NN
 		return layers.dup;
 	}
 
+	/++
+	  Perform a preduction.
+
+	  Currently, it will return the index of the maximum output value.
+
+	  Params:
+		input: An array of input values.
+
+	  Examples:
+	  ---
+	  auto network = NN(2, [3], 1, .01);
+	  auto result = network.preduct([1, 0]);
+	  ---
+	 +/
 	ulong predict(double[] input)
 	{
 		return forward(input).maxIndex();
 	}
 
-	void train(double[][] trainingData, ulong numEpochs, ulong numOutputs)
+	/++
+	  Train the network.
+
+	  The training data should consist of multiple rows containing a set of
+	  input values and the expected value for that set of inputs as last
+	  element in the row.  For example, for XOR, there are two inputs, so
+	  each row would have 3 values.
+
+	  After each epoch, a message is printed stating the current epoch and
+	  the current amount of error between the expected and actual results.
+
+	  Params:
+	  	trainingData = The data to be used to traing the model.
+		numEpochs = The number of times to train against the training data.
+
+	  Example:
+	  ---
+	  double[][] data = [
+	  	[1, 1, 0],
+	  	[0, 1, 1],
+	  	[1, 0, 1],
+	  	[0, 0, 0]
+	  ];
+	  auto network = NN(2, [3], 2, .01);
+	  network.train(data, 1000);
+	  ---
+	 +/
+	void train(double[][] trainingData, ulong numEpochs)
 	{
 		// Expected should be the same size as the number of outputs.
 		double[] expected;
-		expected.length = numOutputs;
+		expected.length = layers[$-1].length;
 		foreach (ep; 0..numEpochs)
 		{
 			double sumError = 0;
@@ -162,10 +236,13 @@ struct NN
 				backward(expected);
 				updateWeights(row);
 			}
-			writefln("epoch: %d, error: %f", ep, sumError);
+			writefln("epoch: %d\terror: %f", ep+1, sumError);
 		}
 	}
 
+	/*
+	   Perform the forward-proporation through the network.
+	 */
 	private double[] forward(double[] inputs)
 	{
 		double[] currInputs = inputs;
@@ -193,9 +270,17 @@ struct NN
 		net.layers[1].length.should.equal(3);
 	}
 
+	/*
+	   Perform backwards propogation through the network.
+
+	   This will take the expected values and calculate the delta between
+	   the expeted results and the current results.
+	 */
 	private void backward(double[] expected)
 	in
 	{
+		// Assure the numberr of expected outputs is the same as the
+		// number of outputs in the network.
 		assert(expected.length == layers[$-1].length);
 	}
 	do
@@ -204,6 +289,7 @@ struct NN
 		{
 			double[] errors;
 			// Handle output layer differently from other layers.
+			// Output layer has it's errors calculated off the expected values.
 			if (i == layers.length-1)
 			{
 				for (long j = 0; j < layers[i].length; j++)
@@ -213,6 +299,9 @@ struct NN
 			}
 			else
 			{
+				// Error is calculated based on the weights and
+				// deltas of the next layer for the given node
+				// in the current layer.
 				for (long j = 0; j < layers[i].length; j++)
 				{
 					double error = 0.0;
@@ -223,6 +312,10 @@ struct NN
 					errors ~= error;
 				}
 			}
+
+			// Calculate the new delta based on the calculated
+			// errors and the derivative of the current neurons
+			// output.
 			for (long j = 0; j < layers[i].length; j++)
 			{
 				layers[i][j].delta = errors[j] * layers[i][j].derivativeFunc(layers[i][j].output);
@@ -251,6 +344,9 @@ struct NN
 		net.layers[1].length.should.equal(3);
 	}
 
+	/*
+	   Update the weights based on expected inputs and the calculated deltas.
+	 */
 	private void updateWeights(double[] nnInput)
 	in
 	{
@@ -275,6 +371,8 @@ struct NN
 					inputs ~= l.output;
 				}
 			}
+
+			// Adjust the weight of each neuron in the current layer.
 			for (int j = 0; j < layers[i].length; j++)
 			{
 				for (int k = 0; k < inputs.length; k++)
@@ -309,7 +407,7 @@ struct NN
 	}
 }
 
-struct Neuron
+private struct Neuron
 {
 	private double[] weights;
 	private double output, delta;
@@ -373,13 +471,13 @@ struct Neuron
 	}
 	do
 	{
+		// Initialize the activiation value with the bias.
 		double activation = weights[$-1];
 		foreach (i; 0..inputs.length)
 		{
 			activation += inputs[i] * weights[i];
 		}
-		output = transferFunc(activation);
-		return output;
+		return transferFunc(activation);
 	}
 
 	@("Activate")
