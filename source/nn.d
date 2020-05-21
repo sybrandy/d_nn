@@ -1,4 +1,6 @@
-import std.algorithm, std.conv, std.math, std.random, std.stdio;
+import std.algorithm, std.conv, std.file, std.math, std.random, std.stdio;
+
+import msgpack;
 
 version(unittest)
 {
@@ -31,7 +33,6 @@ struct NN
 	{
 		this(numInputs, numHidden, numOutputs, lr, null, null);
 	}
-
 
 	/++
 	  Create a new network with custom transfer and derivative functions.
@@ -82,6 +83,19 @@ struct NN
 		foreach (i; 0..numOutputs)
 		{
 			layers[$-1] ~= Neuron(numHidden[$-1], transfer, derivative);
+		}
+	}
+
+	this(NN currObj, double delegate(double) transfer, double delegate(double) derivative)
+	{
+		this.learningRate = currObj.learningRate;
+		this.layers.length = currObj.layers.length;
+		foreach (i; 0..currObj.layers.length)
+		{
+			foreach (n; currObj.layers[i])
+			{
+				this.layers[i] ~= Neuron(n, null, null);
+			}
 		}
 	}
 
@@ -414,12 +428,101 @@ struct NN
 	}
 }
 
+/++
+  Serializes a network to a binary array using msgpack.
+
+  NOTE: This does not store the transfer and derivative functions, so if the default options are not used you need to provide them when loading the network.
+
+  Example:
+  ---
+  ubyte[] serializedNetwork = serializeNetwork(currNetwork);
+  ---
++/
+ubyte[] serializeNetwork(NN currNetwork)
+{
+	return pack(currNetwork);
+}
+
+/++
+  Creates a network based on a previously saved state.
+
+  Params:
+	data = The serialized network.
+
+  Example:
+  ---
+  ubyte[] oldNetwork = ...; // Previously serialized network.
+  auto network = loadNetwork(oldNetwork);
+  ---
++/
+NN loadNetwork(ubyte[] data)
+{
+	return loadNetwork(data, null, null);
+}
+
+/++
+  Creates a network based on a previously saved state.
+
+  Params:
+	data = The serialized network.
+	transfer = A function that implements the transfer equation.  Default: Sigmoid function.
+	derivative = A function that implements the derivative of the transfer function.
+
+  Example:
+  ---
+  ubyte[] oldNetwork = ...; // Previously serialized network.
+  double myTransfer(double in) { return in / 2; }  // Neither of these should be used.
+  double myDerivative(double in) { return in * 2; }
+  auto network = loadNetwork(oldNetwork, &myTransfer, &myDerivative);
+  ---
++/
+NN loadNetwork(ubyte[] data, double delegate(double) transfer, double delegate(double) derivative)
+{
+	return NN(unpack!NN(data), transfer, derivative);
+}
+
+@("Serialization")
+unittest
+{
+	auto net = NN(2, [4], 3, 0.1);
+	auto preSerialize = net.predict([1, 1]);
+	ubyte[] saved = net.serializeNetwork();
+	NN newNet = loadNetwork(saved);
+	newNet.predict([1, 1]).should.equal(preSerialize);
+}
+
 private struct Neuron
 {
 	private double[] weights;
 	private double output, delta;
 	private double delegate(double) transferFunc;
 	private double delegate(double) derivativeFunc;
+
+	this(Neuron currNeuron, double delegate(double) transfer, double delegate(double) derivative)
+	{
+		foreach (w; currNeuron.weights)
+		{
+			this.weights ~= w;
+		}
+
+		if (transfer is null)
+		{
+			transferFunc = &defaultTransfer;
+		}
+		else
+		{
+			transferFunc = transfer;
+		}
+
+		if (derivative is null)
+		{
+			derivativeFunc = &defaultDerivative;
+		}
+		else
+		{
+			derivativeFunc = derivative;
+		}
+	}
 
 	/+
 	  Initializes a neuron with randomized weights based.

@@ -4,15 +4,15 @@
 	],
 	"configurations": [
 		{
-			"targetType": "library",
-			"excludeSourceFiles": "source/app.d",
-			"name": "library"
+			"name": "library",
+			"targetType": "library"
 		},
 		{
 			"dependencies": {
 				"fluent-asserts": "~>0.13.0"
 			},
-			"name": "unittest"
+			"name": "unittest",
+			"targetType": "library"
 		},
 		{
 			"name": "run",
@@ -21,6 +21,7 @@
 	],
 	"copyright": "Copyright © 2020, Cornelius Sybrandy",
 	"dependencies": {
+		"msgpack-d": "~>1.0.2",
 		"silly": "~>1.0.2"
 	},
 	"description": "A library for creating neural networks in D.",
