@@ -56,11 +56,11 @@ struct NN
 			double delegate(double) transfer, double delegate(double) derivative)
 	in
 	{
-		assert(numInputs > 0);
-		assert(numHidden.length > 0);
-		assert(numHidden.all!(a => a > 0));
-		assert(numOutputs > 0);
-		assert(lr > 0.0);
+		assert(numInputs > 0, "Inputs must be greater than 0.");
+		assert(numHidden.length > 0, "Must have at least 1 hidden layer.");
+		assert(numHidden.all!(a => a > 0), "All hidden layers must have more than 0 neurons.");
+		assert(numOutputs > 0, "Number of outputs must be more than 0.");
+		assert(lr > 0.0, "The learning rate must be greater than 0.");
 	}
 	do
 	{
@@ -300,9 +300,10 @@ struct NN
 	private void backward(double[] expected)
 	in
 	{
-		// Assure the numberr of expected outputs is the same as the
+		// Assure the number of expected outputs is the same as the
 		// number of outputs in the network.
-		assert(expected.length == layers[$-1].length);
+		assert(expected.length == layers[$-1].length,
+				"The number of expected values must match the number of outputs.");
 	}
 	do
 	{
@@ -377,7 +378,8 @@ struct NN
 		// as well.  In reality, we could just do a straight
 		// comparison, but if things change for any reason, I belive
 		// this code and this comment would be better.
-		assert(nnInput.length - 1 == layers[0][0].weights.length - 1);
+		assert(nnInput.length - 1 == layers[0][0].weights.length - 1,
+				"The number of weights must be the same as the number of neurons in the previous layer.");
 	}
 	do
 	{
@@ -530,7 +532,7 @@ private struct Neuron
 	this(ulong numWeights, double delegate(double) transfer, double delegate(double) derivative)
 	in
 	{
-		assert(numWeights > 0);
+		assert(numWeights > 0, "The numbrer of weights must be greater than 0.");
 	}
 	do
 	{
@@ -577,7 +579,8 @@ private struct Neuron
 	double activate(double[] inputs)
 	in
 	{
-		assert(inputs.length == weights.length-1);
+		assert(inputs.length == weights.length-1,
+				"The number of inputs must match the number of expected inputs.");
 	}
 	do
 	{
@@ -613,8 +616,8 @@ private struct Neuron
 	double defaultTransfer(double input)
 	out (r)
 	{
-		assert(r > -1);
-		assert(r < 1);
+		assert(r > -1, "Result must be greater than -1.");
+		assert(r < 1, "Result must be less than 1.");
 	}
 	do
 	{
